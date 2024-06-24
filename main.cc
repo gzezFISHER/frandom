@@ -1,3 +1,4 @@
+#include <bit>
 #include <random>
 #include <string>
 #include <vector>
@@ -42,7 +43,7 @@ int main(int argc, char *argv[]) {
     program.add_argument("-l", "--length")
       .nargs(1)
       .scan<'i', int>()
-      .default_value(25);
+      .default_value(29);
     
     try {
         program.parse_args(argc, argv);
@@ -97,21 +98,13 @@ int main(int argc, char *argv[]) {
             exit(1);
         }
 
-        int sz = v1.size(), hf = (sz + 1) / 2;
-        std::vector<int> inc[1 << hf];
-        for (int s = 0; s < (1 << hf); s++)
-            for (int i = 0; i < hf; i++)
-                if ((s >> i) & 1) inc[s].push_back(i);
+        int sz = v1.size();
 
         u64 rs = 0;
         for (int s = 0; s < (1 << sz); s++) {
-            for (int i : inc[s & ((1 << hf) - 1)]) {
-                op(rs, v2[i]);
-                op(rs, v1[i]);
-            }
-            for (int i : inc[s >> hf]) {
-                op(rs, v2[i + hf]);
-                op(rs, v1[i + hf]);
+            for (int i = 0; i < sz; i++) {
+                if ((s >> i) & 1) op(rs, v1[i]);
+                else op(rs, v2[i]);
             }
         }
 
