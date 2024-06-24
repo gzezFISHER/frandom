@@ -24,8 +24,6 @@ void op(u64 &a, u64 b) {
     a ^= 1ULL << __builtin_popcountll(a);
 }
 
-const u64 minimumTimeComplexity = 1000000000;
-
 int main(int argc, char *argv[]) {
     argparse::ArgumentParser program("frandom", "1.0");
 
@@ -40,6 +38,11 @@ int main(int argc, char *argv[]) {
       .nargs(2)
       .default_value(std::vector<std::string>({"a.json", "b.json"}))
       .help("calculate result of two data files.");
+
+    program.add_argument("-l", "--length")
+      .nargs(1)
+      .scan<'i', int>()
+      .default_value(25);
     
     try {
         program.parse_args(argc, argv);
@@ -56,29 +59,7 @@ int main(int argc, char *argv[]) {
         std::mt19937_64 rng(std::random_device{}());
 
         json o;
-        o["vars"] = json::array();
-        for (int i = 0; i < 128; i++) o["vars"].push_back(rng());
-
-        o["funcs"] = json::array();
-        std::vector<u64> timeComplexity;
-        int funcCnt = 0;
-        while (true) {
-            o["funcs"].push_back(json::array());
-            timeComplexity.push_back(1);
-            std::uniform_int_distribution d(0, funcCnt - 1);
-            while (rng() % 512 != 0 && timeComplexity.back() < minimumTimeComplexity) {
-                if (funcCnt == 0 || rng() % 128 != 0) {
-                    o["funcs"].back().push_back(rng() % 128);
-                    timeComplexity.back()++;
-                } else {
-                    int nw = d(rng);
-                    o["funcs"].back().push_back(128 + nw);
-                    timeComplexity.back() += timeComplexity[nw];
-                }
-            }
-            funcCnt++;
-            if (timeComplexity.back() >= minimumTimeComplexity) break;
-        }
+        for (int i = 0; i < program.get<int>("-l"); i++) o.push_back(rng());
 
         std::ofstream F(fn);
         F << o;
@@ -96,12 +77,44 @@ int main(int argc, char *argv[]) {
         std::ifstream F1(fn[0]), F2(fn[1]);
         json data1 = json::parse(F1), data2 = json::parse(F2);
 
-        auto v1 = parseVars(data1, fn[0]), v2 = parseVars(data2, fn[1]);
-        auto f1 = parseFuncs(data1, fn[0]), f2 = parseFuncs(data2, fn[1]);
+        std::vector<u64> v1, v2;
+        if (!data1.is_array()) formatError(fn[0]);
+        for (auto x : data1) {
+            if (x.is_number_unsigned()) v1.push_back(x);
+            else formatError(fn[0]);
+        }
+        if (!data2.is_array()) formatError(fn[1]);
+        for (auto x : data2) {
+            if (x.is_number_unsigned()) v2.push_back(x);
+            else formatError(fn[1]);
+        }
+        if (v1.size() != v2.size()) {
+            std::cerr << "length are diffrent." << std::endl;
+            exit(1);
+        }
+        if (v1.size() > 30) {
+            std::cerr << "too long to calculate." << std::endl;
+            exit(1);
+        }
+
+        int sz = v1.size(), hf = (sz + 1) / 2;
+        std::vector<int> inc[1 << hf];
+        for (int s = 0; s < (1 << hf); s++)
+            for (int i = 0; i < hf; i++)
+                if ((s >> i) & 1) inc[s].push_back(i);
 
         u64 rs = 0;
-        if (getResult(f1.size() - 1, f1, v2, rs) < minimumTimeComplexity) std::cerr << "complexity is too low in \'" + fn[0] + "\'." << std::endl;
-        if (getResult(f2.size() - 1, f2, v1, rs) < minimumTimeComplexity) std::cerr << "complexity is too low in \'" + fn[1] + "\'." << std::endl;
+        for (int s = 0; s < (1 << sz); s++) {
+            for (int i : inc[s & ((1 << hf) - 1)]) {
+                op(rs, v2[i]);
+                op(rs, v1[i]);
+            }
+            for (int i : inc[s >> hf]) {
+                op(rs, v2[i + hf]);
+                op(rs, v1[i + hf]);
+            }
+        }
+
         std::cout << rs;
     }
 }
