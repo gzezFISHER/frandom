@@ -18,50 +18,10 @@ void formatError(std::string fn) {
     exit(1);
 }
 
-std::vector<u64> parseVars(const json &a, std::string fn) {
-    if (a["vars"].is_array() && a["vars"].size() == 128) {
-        std::vector<u64> rs;
-        for (auto x : a["vars"]) {
-            if (x.is_number_unsigned()) rs.push_back(x);
-            else formatError(fn);
-        }
-        return rs;
-    } else formatError(fn);
-}
-
-std::vector<std::vector<int>> parseFuncs(const json &a, std::string fn) {
-    if (a["funcs"].is_array()) {
-        std::vector<std::vector<int>> rs;
-        int funcCnt = 0;
-        for (auto x : a["funcs"]) {
-            rs.emplace_back();
-            if (x.is_array()) {
-                for (auto y : x) {
-                    if (y.is_number_unsigned() && y < 128 + funcCnt) rs.back().push_back(y);
-                    else formatError(fn);
-                }
-            } else formatError(fn);
-            funcCnt++;
-        }
-        return rs;
-    } else formatError(fn);
-}
-
 void op(u64 &a, u64 b) {
-    a = ~a ^ b;
+    a = (a >> 3) | (a << 61);
+    a ^= b;
     a ^= 1ULL << __builtin_popcountll(a);
-}
-
-u64 getResult(int id, const std::vector<std::vector<int>> &f, const std::vector<u64> &v, u64 &ans) {
-    u64 opcount = 0;
-    for (int nxt : f[id]) {
-        if (nxt < 128) {
-            op(ans, v[nxt]);
-            opcount++;
-        } else opcount += getResult(nxt - 128, f, v, ans);
-    }
-    op(ans, id);
-    return ++opcount;
 }
 
 const u64 minimumTimeComplexity = 1000000000;
