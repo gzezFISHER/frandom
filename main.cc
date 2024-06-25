@@ -19,10 +19,10 @@ void formatError(std::string fn) {
     exit(1);
 }
 
-void op(u64 &a, u64 b) {
+inline void op(u64 &a, u64 b) {
     a = (a >> 3) | (a << 61);
     a ^= b;
-    a ^= 1ULL << __builtin_popcountll(a);
+    a ^= 1ULL << std::popcount(a);
 }
 
 int main(int argc, char *argv[]) {
