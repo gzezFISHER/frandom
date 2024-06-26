@@ -6,7 +6,6 @@
 #include <iterator>
 #include <iostream>
 #include <algorithm>
-#include <exception>
 
 #include <argparse/argparse.hpp>
 
@@ -39,12 +38,6 @@ void ofVector(std::string fn, const std::vector<u64> &v64) {
     o.close();
 }
 
-inline void op(u64 &a, u64 b) {
-    a = (a >> 3) | (a << 61);
-    a ^= b;
-    a ^= 1ULL << std::popcount(a);
-}
-
 int main(int argc, char *argv[]) {
     argparse::ArgumentParser program("frandom", "1.0");
 
@@ -65,14 +58,7 @@ int main(int argc, char *argv[]) {
       .scan<'i', int>()
       .default_value(29);
     
-    try {
-        program.parse_args(argc, argv);
-    }
-    catch (const std::exception& err) {
-        std::cerr << err.what() << std::endl;
-        std::cerr << program;
-        std::exit(1);
-    }
+    program.parse_args(argc, argv);
 
     if (program.is_used("-g")) {
         auto fn = program.get<std::string>("-g");
@@ -108,11 +94,17 @@ int main(int argc, char *argv[]) {
         }
 
         int sz = v1.size();
+        std::vector<u64> vmg;
+        for (int i = 0; i < sz; i++) vmg.push_back(v2[i]), vmg.push_back(v1[i]);
+
         u64 rs = 0;
         for (u64 s = 0; s < (1ULL << sz); s++) {
+            u64 *p = vmg.data(), t = s;
             for (int i = 0; i < sz; i++) {
-                if ((s >> i) & 1) op(rs, v1[i]);
-                else op(rs, v2[i]);
+                rs = std::rotr(rs, 3) + *(p + (t & 1));
+                rs ^= 1ULL << std::popcount(rs);
+                p += 2;
+                t >>= 1;
             }
         }
 
