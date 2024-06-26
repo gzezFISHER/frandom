@@ -3,20 +3,40 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <iterator>
 #include <iostream>
+#include <algorithm>
 #include <exception>
 
-#include <nlohmann/json.hpp>
 #include <argparse/argparse.hpp>
 
-using json = nlohmann::json;
+using u64 = uint64_t;
 
-using u32 = unsigned int;
-using u64 = unsigned long long;
+std::vector<u64> ifVector(std::string fn) {
+    std::ifstream in(fn, std::ifstream::binary);
+    if (!in) {
+        std::cerr << "cannot open file \'" + fn + "\'.";
+        exit(1);
+    }
 
-void formatError(std::string fn) {
-    std::cerr << "wrong format in \'" + fn + "\'." << std::endl;
-    exit(1);
+    std::vector<char> rs8;
+    std::copy(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>(), std::back_inserter(rs8));
+
+    if (rs8.size() % 8 != 0) rs8.resize((rs8.size() + 7) / 8 * 8);
+    std::vector<u64> rs64((u64 *)rs8.data(), (u64 *)(rs8.data() + rs8.size()));
+
+    in.close();
+    return rs64;
+}
+
+void ofVector(std::string fn, const std::vector<u64> &v64) {
+    std::vector<char> v8((char *)v64.data(), (char *)(v64.data() + v64.size()));
+
+    std::ofstream o(fn, std::ofstream::binary);
+    std::copy(v8.begin(), v8.end(), std::ostreambuf_iterator<char>(o));
+
+    o.flush();
+    o.close();
 }
 
 inline void op(u64 &a, u64 b) {
@@ -32,12 +52,12 @@ int main(int argc, char *argv[]) {
 
     group.add_argument("-g", "--gen")
       .nargs(1)
-      .default_value(std::string("a.json"))
+      .default_value(std::string("a.bin"))
       .help("generate a data file.");
 
     group.add_argument("-c", "--calc")
       .nargs(2)
-      .default_value(std::vector<std::string>({"a.json", "b.json"}))
+      .default_value(std::vector<std::string>({"a.bin", "b.bin"}))
       .help("calculate result of two data files.");
 
     program.add_argument("-l", "--length")
@@ -59,11 +79,10 @@ int main(int argc, char *argv[]) {
         
         std::mt19937_64 rng(std::random_device{}());
 
-        json o;
+        std::vector<u64> o;
         for (int i = 0; i < program.get<int>("-l"); i++) o.push_back(rng());
 
-        std::ofstream F(fn);
-        F << o;
+        ofVector(fn, o);
     }
 
     if (program.is_used("-c")) {
@@ -75,33 +94,22 @@ int main(int argc, char *argv[]) {
             std::exit(1);
         }
 
-        std::ifstream F1(fn[0]), F2(fn[1]);
-        json data1 = json::parse(F1), data2 = json::parse(F2);
+        std::ifstream F1(fn[0], std::ios::binary), F2(fn[1], std::ios::binary);
 
-        std::vector<u64> v1, v2;
-        if (!data1.is_array()) formatError(fn[0]);
-        for (auto x : data1) {
-            if (x.is_number_unsigned()) v1.push_back(x);
-            else formatError(fn[0]);
-        }
-        if (!data2.is_array()) formatError(fn[1]);
-        for (auto x : data2) {
-            if (x.is_number_unsigned()) v2.push_back(x);
-            else formatError(fn[1]);
-        }
+        std::vector<u64> v1 = ifVector(fn[0]);
+        std::vector<u64> v2 = ifVector(fn[1]);
         if (v1.size() != v2.size()) {
             std::cerr << "length are diffrent." << std::endl;
             exit(1);
         }
-        if (v1.size() > 30) {
+        if (v1.size() > 35) {
             std::cerr << "too long to calculate." << std::endl;
             exit(1);
         }
 
         int sz = v1.size();
-
         u64 rs = 0;
-        for (int s = 0; s < (1 << sz); s++) {
+        for (u64 s = 0; s < (1ULL << sz); s++) {
             for (int i = 0; i < sz; i++) {
                 if ((s >> i) & 1) op(rs, v1[i]);
                 else op(rs, v2[i]);
