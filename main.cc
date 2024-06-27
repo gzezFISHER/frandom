@@ -101,8 +101,10 @@ int main(int argc, char *argv[]) {
         for (u64 s = 0; s < (1ULL << sz); s++) {
             u64 *p = vmg.data(), t = s;
             for (int i = 0; i < sz; i++) {
-                rs = std::rotr(rs, 3) + *(p + (t & 1));
-                rs ^= 1ULL << std::popcount(rs);
+                rs += *(p + 2 - (t & 1));
+                rs = rs * rs;
+                rs += *(p + (t & 1));
+                rs = std::rotr(rs, std::popcount(rs));
                 p += 2;
                 t >>= 1;
             }
