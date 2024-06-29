@@ -39,7 +39,7 @@ void ofVector(std::string fn, const std::vector<u64> &v64) {
 }
 
 int main(int argc, char *argv[]) {
-    argparse::ArgumentParser program("frandom", "1.0");
+    argparse::ArgumentParser program("frandom", "v1.0.0");
 
     auto &group = program.add_mutually_exclusive_group();
 
