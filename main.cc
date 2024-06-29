@@ -110,6 +110,6 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        std::cout << rs;
+        std::cout << rs << std::endl;
     }
 }
